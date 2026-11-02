@@ -1,0 +1,40 @@
+
+name: Build Font Finder
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Extract project
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath "FontFinderStarter.zip" -DestinationPath "extracted" -Force
+          $project = Get-ChildItem -Path "extracted" -Recurse -Filter "*.csproj" | Select-Object -First 1
+          if (-not $project) {
+            throw "No project file found in ZIP."
+          }
+          "PROJECT_PATH=$($project.FullName)" >> $env:GITHUB_ENV
+
+      - name: Build application
+        shell: pwsh
+        run: |
+          msbuild "$env:PROJECT_PATH" /p:Configuration=Release /p:Platform="Any CPU"
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: FontFinder-Windows
+          path: extracted/**/bin/Release/*
+          if-no-files-found: error
