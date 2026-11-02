@@ -27,6 +27,11 @@ jobs:
           }
           "PROJECT_PATH=$($project.FullName)" >> $env:GITHUB_ENV
 
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: |
+          dotnet restore "$env:PROJECT_PATH"
+
       - name: Build application
         shell: pwsh
         run: |
