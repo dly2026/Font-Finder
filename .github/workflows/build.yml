@@ -1,4 +1,3 @@
-
 name: Build Font Finder
 
 on:
@@ -56,9 +55,42 @@ jobs:
           Write-Host "Build output found: $($output.FullName)"
           "OUTPUT_PATH=$($output.DirectoryName)" >> $env:GITHUB_ENV
 
+      - name: Run built-in self-test
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:OUTPUT_PATH "FontFinder.exe"
+          $results = Join-Path $env:OUTPUT_PATH "selftest-results.txt"
+
+          $process = Start-Process -FilePath $exe `
+            -ArgumentList @("--selftest", "`"$results`"") `
+            -PassThru
+
+          if (-not $process.WaitForExit(300000)) {
+            $process.Kill()
+            throw "Self-test timed out after 5 minutes."
+          }
+
+          if (-not (Test-Path $results)) {
+            throw "Self-test results file was not created."
+          }
+
+          Get-Content $results
+
+          if ($process.ExitCode -ne 0) {
+            throw "Self-test failed with exit code $($process.ExitCode)."
+          }
+
       - name: Upload Windows application
         uses: actions/upload-artifact@v4
         with:
           name: FontFinder-Windows
           path: ${{ env.OUTPUT_PATH }}/**
           if-no-files-found: error
+
+      - name: Upload self-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FontFinder-SelfTest
+          path: ${{ env.OUTPUT_PATH }}/selftest-results.txt
+          if-no-files-found: warn
